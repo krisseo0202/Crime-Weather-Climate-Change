@@ -1,4 +1,4 @@
-# Group Assignment 5
+# Group Assignment 6
 
 **Due: 12/2/18**
 
@@ -18,57 +18,39 @@ Dependencies:
  * Other dependencies can be found in `environment.yml`
 
 ## Project Description
+This repo contains code, tests, and documentation for Group Assignment 6. In this assignment, we fit a Poisson regression model for all of Alameda County, West Alameda, and East Alameda, separately. We regressed crime counts on binned counts for temperature and precipitation for each month and year combination. We then devised and performed a permutation test to check whether the regressions on East and West Alameda are consistent with a single model. Using the permutation bootstrap test, we wanted to check if the relationship between weather and crime is meaningfully different for the two parts of Alameda County.
 
-This repo contains code, tests, and documentation for Group Assignment 5. In this assignment, we are looking to test if Berkeley and Livermore have the same weather data. We will first import the necessary functions from the past assignments. Specifically, we import get_almeda_county_points, filter_randon_criteria, clean_data, and get_weather_data. 
+### Data Collection
+First, we collected and binned temperature data from each data point within Alameda County (from Assignments 2 and 3). We then split this data up into East and West Berkeley based on the (lat, lon) points (from Assignment 4). This gave us our explanatory data, which included counts for temperature and precipation bins for each month and year combination, which is a dataframe with shape 360 x 10 (7 temperature and 3 precipation bins). We gathered crime data from the provided [Open ICPSR link](https://www.openicpsr.org/openicpsr/project/100707/version/V7/view); the specific dataset we downloaded was `ucr_offenses_known_monthly_1960_2016_dta.zip`. We filtered for data points in Alameda County and between the years 1980 - 2009. To get crime counts, we summed up all crimes for all zipcodes that fell into our three groups (West Alameda, East Alameda, and all of Alameda County). Combining the binned data and crime data, we have the full dataset to perform our Poisson regression.
 
-### Capturing Data and Binning
+### Poisson Regression
+[TODO: Kunal] We used the out-of-the-box GLM functions from the `statsmodel` module.
 
-We first bin the maximum temperature for the weather stations using Ranson's categories: 0°F-10°F, 10°F-20°F, 20°F-30°F, 30°F-40°F, 40°F-50°F, 50°F-60°F, 60°F-70°F, 70°F-80°F, 80°F-90°F, and 90°F-100°F. We do this through the functions `get_data()` and `get_city_data(df, id, element='TMAX')`. Then we convert the data points to fahrenheit using `convert_to_fahrenheit(df)`. 
+### Permutation Test
 
-### Intersecting Livermore's and Berkeley's DataFrame
+We devised and performed a permutation test to check whether the regressions on East and West Alameda are consistent with a single model. Using the permutation bootstrap test, we wanted to check if the relationship between weather and crime is meaningfully different for the two parts of Alameda County. To do this, we used the RMSE of West and East Alameda as our test statistic to measure the two models of West and East Alameda. The combined RMSE is a good measure of the combined fit of the two models, and it's a good way to check if fitting two separate models fits the crime data "surprisingly better" than if the relationship were the same everywhere. We calculated the test statistic for our original split, and we compared this value to the empirical CDF of test statistics after randomly permutating the data and rerunning the test many times. For our permutation, we randomly assigned data points to West and East Alameda using a PRNG (p = 0.5). Then, we fit two Poisson regression models to these two sets of randomized data and computed the combined RMSE. We performed this procedure many times (roughly 10,000 times). We performed a one-sided test to get the p-value, which is the portion of test statistics that are smaller than our original value. If the p-value is low, then the RMSE calculated from the randomly assigned data is typically much larger than it is for the original data, which is evidence that the relationship between weather and crime is truly different in West Alameda and East Alameda.
 
-The above creates the initial data frame that bins the maximum temperature. To perform a two sample test, the length of the data sets have to be the same. Since Livermore contains more data than Berkeley, we use get_intersected to shorten Livermore's data to match Berkley's data frame. Essentially, we create one data frame with both Berkeley's data frame and Livermore's data frame. We then split the data frame into two. The intersection formula is denoted below.
+#### Randomization Strategy
 
-### Stratification
+Our permutation test involves creating 10,000 pseudo-randomly generated splits of the data in Alameda County. We calculate the RMSE for each of these generated samples to create an empirical CDF of errors and use this to find a p-value for the errors found in our east and west samples.
 
-**What did you stratify on? Why is that a good choice? Why stratify at all?**
+Although non-cryptographic PRNGs have obvious flaws, in this particular project, the flaws are not as consequential. Since our random permutations are not used for security, it is not necessary to randomize in a way such that it cannot be decrypted.
 
-After we have both dataframes, we stratify the data by year and month. We believe that these are good stratas because they are mutually exclusive and collectively exhaustive. Furthermore, this accounts for climate change. On a larger yearly scope, this accounts for global warming. On a smaller monthly scope, this accounts for seasonality. 
+For our test to work, we have to assume:
+* Randomness - Python's random number generator is strong enough based on what we've tested. Even though Mersenne Twister has a state space that cannot generate all permutations of over 2084 things, our data only contains about 700 rows, so we can still generate all the permutations. We have also checked that there is a balanced distribution between even and odd rows picked. We have also recorded the seed for reproducibility.
+* Large enough sample size.
+* Variance in our samples are approximately equal.
 
-### Chi-Squared Distribution 
-
-**Can you use the chi-square distribution to calibrate the test? Why or why not?**
-
-After the stratification of the data, we use the fisher combining formula. The value from the formula is chi-square distributed therefore you can use chi-square distribution to calibrate the test. We can then use a chi-squared distribution to determine how well our data's distribution compares to a normal, binomial, or poisson distribution. 
-
-From there, we calculate the p-value. Below is the function for the above process.
-
-### Taking into Account Simulation Uncertainty 
-
-**Discuss how to take into account simulation uncertainty in estimating the overall P-value**
-
-To reduce uncertainty in estimating the overall p-value, we can generate PRNG on the data for certain amount of times until p-values converge or use bias-correction as Ranson mentioned. 
-Essentially, using the two-sample function provided by Professor Stark.
-
-### Conclusion
-
-**Discuss what your findings mean for Ranson's approach**
-
-Since our findings include a p-value that is lower than alpha, we must reject the null hypothesis. Therefore, we conclude that the weather in Livermore and in Berkeley is not the same. In Ranson's paper, he assumed that the weather within a county is the same. However, this is not the case according to our findings. 
-
-Since Ranson assumed that the weather within a county is the same, his results could be misleading. Mainly, the positive correlation between crime rate and high temperature could be exagerrated since the cities within a county could have differing temperatures. The vice versa holds true also. 
 
 ## Instructions to Duplicate Results
-To run this assignment, go to the root directory of the project (cwcc-g11) and run the following command: `python -m Assignment5.assignment5`. To run the unit tests, run the following command: `python -m unittest Assignment5.test_assignment5`. To run the unit tests with coverage, run the following command: `coverage run -m unittest Assignment5.test_assignment5` followed by `coverage report -m`. For this to work, place the data files at `cwcc-g11/Assignment5/data`. The weather station data can be found in this [OSF link](https://osf.io/kwtem/).
+To run this assignment, go to the root directory of the project (cwcc-g11) and run the following command: `python -m Assignment6.assignment6`. To run the unit tests, run the following command: `python -m unittest Assignment6.test_assignment6`. To run the unit tests with coverage, run the following command: `coverage run -m unittest Assignment6.test_assignment6` followed by `coverage report -m`. For this to work, place the data files at `cwcc-g11/Assignment6/data`. The weather station data can be found in this [OSF link](https://osf.io/kwtem/). The crime data can be found in this [Open ICPSR link](https://www.openicpsr.org/openicpsr/project/100707/version/V7/view); the specific dataset we downloaded was `ucr_offenses_known_monthly_1960_2016_dta.zip`.
 
 1. Import the necessary packages denoted specified above and in the `environment.yml` file. 
     - import Nominatim from geopy.geocoders and declare a global geolocator object
-    - import the necessary functions from Assignments 1 - 4
-2. Create a folder called `data` and place data files there. You should have `cwcc-g11/Assignment5/data/stations_ca.csv` and `cwcc-g11/Assignment5/data/weather_data_ca.csv` in your path. The data can be found in this [OSF link](https://osf.io/kwtem/).
-3. Run the `main` in `assignment5.py`.
-    a. Run `get_data` to get data from Fanson's criteria.
-    b. Run `get_city_data` to get data for Berkeley and Livermore.
-    c. Run `convert_to_fahrenheit` to add the fahrenheit column to the data.
-    d. Run `bin_data` to bin the data by temperature and precipitation.
-    e. Run `stratify` to stratify the data by month and year.
-    f. Run `permutation_test` to perform the stratified permutation test and get the p-value using fisher combining function.
+    - import the necessary functions from Assignments 1 - 5
+2. Create a folder called `data` and place data files there. You should have `cwcc-g11/Assignment6/data/stations_ca.csv` and `cwcc-g11/Assignment6/data/weather_data_ca.csv` in your path. The data can be found in this [OSF link](https://osf.io/kwtem/) You should also have the crime data `cwcc-g11/Assignment6/data/ucr_offenses_known_monthly_1960_2016_dta`, which can be found in this [Open ICPSR link](https://www.openicpsr.org/openicpsr/project/100707/version/V7/view).
+3. Collect and clean the data that will go into our Poisson regression model. This involves binning the temperature and precipitation data, filtering and cleaning the crime data, and joining the explanatory and response variables data.
+4. We perform this regression on all Alameda County, West Alameda, and East Alameda data points. Record the test statistic (combined RMSE) of West and East Alameda data.
+5. Run the permutation test 
+
+
